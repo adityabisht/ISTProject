@@ -1,4 +1,4 @@
-#Author: Developer 1
+
 #AWS Provider
 
 provider "aws" {
