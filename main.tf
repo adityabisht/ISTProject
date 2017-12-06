@@ -1,7 +1,5 @@
-#Date 12/5/2017
 
-#AWS Provider
-
+# Create a AWS Provider 
 
 provider "aws" {
   region = "${var.aws_region}"
@@ -9,19 +7,19 @@ provider "aws" {
 }
 
 
-# Creating a Virtual Private Cloud and thne creating resources inside that VPC.
+# Create a Virtual Private Cloud 
 
 resource "aws_vpc" "vpc" {
   cidr_block = "10.0.0.0/16"
 }
 
-# Creating an internet gateway to give the subnet access to the open internet
+# Create an Internet Gateway to give the subnet access to the open internet gateway.
 
 resource "aws_internet_gateway" "internet-gateway" {
   vpc_id = "${aws_vpc.vpc.id}"
 }
 
-# Give the VPC internet access on its main route table
+# Give the VPC internet access on its main route table and open it to the internet using 0.0.0.0/0
 
 resource "aws_route" "internet_access" {
   route_table_id         = "${aws_vpc.vpc.main_route_table_id}"
@@ -29,7 +27,7 @@ resource "aws_route" "internet_access" {
   gateway_id             = "${aws_internet_gateway.internet-gateway.id}"
 }
 
-# Create a subnet to launch  instances into.
+# Create a Public Subnet to isolated AWS launch instances into and it has to be in the range of VPC using its CIDR block.
 
 resource "aws_subnet" "default" {
   vpc_id                  = "${aws_vpc.vpc.id}"
@@ -41,17 +39,16 @@ resource "aws_subnet" "default" {
   }
 }
 
-# Default security group to access
-# instances over SSH and HTTP
 
+# Create a Security Group with Ingress and Egress Rules and attach it to the VPC.
 
 resource "aws_security_group" "default" {
   name        = "terraform_securitygroup"
   description = "Used for public instances"
   vpc_id      = "${aws_vpc.vpc.id}"
 
-  # Gives SSH Keys so to access into the EC2 instance.
-
+ #SSH access from anywhere. Incoming from Port 22.
+ 
   ingress {
     from_port   = 22
     to_port     = 22
@@ -59,7 +56,8 @@ resource "aws_security_group" "default" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # HTTP access from the VPC
+  #HTTP access from the VPC
+  
   ingress {
     from_port   = 80
     to_port     = 80
@@ -67,7 +65,7 @@ resource "aws_security_group" "default" {
     cidr_blocks = ["10.0.0.0/16"]
   }
 
-  # outbound internet access
+  # outbound internet access. -1 is for all protocols.
   egress {
     from_port   = 0
     to_port     = 0
@@ -76,10 +74,18 @@ resource "aws_security_group" "default" {
   }
 }
 
+
+# AWS Key pair  to SSH into EC2 instances.
+
 resource "aws_key_pair" "auth" {
   key_name   = "${var.key_name}"
   public_key = "${file(var.public_key_path)}"
 }
+
+
+# Create a EC2 instance of type Linux and install Nginx Server on it using Remote Provisioner.
+
+
 
 resource "aws_instance" "web" {
   instance_type = "t2.micro"
@@ -89,17 +95,18 @@ resource "aws_instance" "web" {
   vpc_security_group_ids = ["${aws_security_group.default.id}"]
 
  
+   
   subnet_id = "${aws_subnet.default.id}"
 
-  # The connection block tells our provisioner how to
-  # communicate with the instance
+  
+  # The connection block tells our provisioner how to communicate with the instance of type UBUNTU.
 
 
   connection {
     user = "ubuntu"
   }
 
-  # We run a remote provisioner on the instance after creating it 
+  # Run remote provisioner on the instance after creating it 
   # to install Nginx. 
 
   provisioner "remote-exec" {
@@ -110,5 +117,4 @@ resource "aws_instance" "web" {
     ]
   }
 }
-
 
